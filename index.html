@@ -1,97 +1,439 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Draw Rectangles on Chart</title>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <style>
-        #chart-container {
-            position: relative;
-            width: 600px;
-            height: 400px;
-            margin: 0 auto;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic Candlestick Chart with Trading</title>
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #e8e8e8;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
 
-        .rectangle {
-            position: absolute;
-            background-color: rgba(0, 255, 0, 0.3); /* Transparent green */
-            border: 1px solid #00ff00; /* Green border */
-            pointer-events: none; /* Prevent interference with chart */
-        }
-    </style>
+    #chart-container {
+      width: 90%;
+      max-width: 800px;
+      height: 400px;
+    }
+
+    #controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    #controls button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #buy-button {
+      background-color: #009425;
+      color: white;
+    }
+
+    #sell-button {
+      background-color: #c42b37;
+      color: white;
+    }
+
+    #trade-log {
+      margin-top: 20px;
+      width: 90%;
+      max-width: 800px;
+      height: 150px;
+      /* background-color: #2b2b2b; */
+      overflow-y: auto;
+      border: 1px solid #555;
+      padding: 10px;
+      color: #d1d4dc;
+      font-size: 14px;
+    }
+
+    .log-entry {
+      margin-bottom: 5px;
+      background-color: rgba(255, 255, 255, 0.7);
+      border: .0625rem solid rgba(23, 28, 28, 0.18);
+      border-radius: 12px;
+      box-shadow: 0px 0px 0px rgba(0, 0, 0, 0.2), 0px 0px 0px rgba(0, 0, 0, 0.1), inset 0px 0px 0px rgba(255, 255, 255, 0.2);
+      padding: 1rem;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .trade-time {
+      display: none;
+    }
+
+    .trade-type {
+      color: #0000ff;
+      font-weight: 700 !important;
+      font-size: 0.9rem;
+
+    }
+
+    .trade-price {
+      margin-right: 5px;
+      color: #000;
+      font-weight: 700 !important;
+    }
+
+    .trade-profit {
+      color: #009425;
+    }
+
+    .trade-loss {
+      color: #c42b37;
+    }
+
+    .tpl {
+      font-weight: 700 !important;
+      font-size: 0.9rem;
+      line-height: 1.375;
+
+    }
+
+    .trade-img {
+      height: 20px;
+    }
+
+    .text-market {
+      margin: 0px;
+      color: #171c1ca3;
+    }
+
+    .flex-box {
+      display: flex;
+    }
+  </style>
 </head>
+
 <body>
-    <div id="chart-container"></div>
+  <div id="chart-container"></div>
+  <p id="price-display">BTC/USD Price: $0</p>
+  <div id="controls">
+    <button id="buy-button">Buy</button>
+    <button id="sell-button">Sell</button>
+  </div>
+  <div id="trade-log"></div>
 
+  <script>
+    // Initialize the Lightweight Chart
+    const chartContainer = document.getElementById('chart-container');
+    const chart = LightweightCharts.createChart(chartContainer, {
+      width: chartContainer.offsetWidth,
+      height: 400,
+      layout: {
+        backgroundColor: '#1e1e1e',
+        textColor: '#000',
+      },
+      grid: {
+        vertLines: { color: '#cdcdcd' },
+        horzLines: { color: '#cdcdcd' },
+      },
+      rightPriceScale: {
+        borderColor: '#ffffff',
+      },
+      timeScale: {
+        borderColor: '#ffffff',
+        timeVisible: true,
+        secondsVisible: true,
+      },
+    });
 
-  
-    <script>
-        // Create the chart
-        const chartContainer = document.getElementById('chart-container');
-        const chart = LightweightCharts.createChart(chartContainer, {
-            width: 600,
-            height: 400,
-            layout: {
-                background: { color: '#ffffff' },
-                textColor: '#000',
-            },
-            grid: {
-                vertLines: { color: '#e1e1e1' },
-                horzLines: { color: '#e1e1e1' },
-            },
-        });
+    const candlestickSeries = chart.addCandlestickSeries({
+      upColor: '#4caf50',
+      downColor: '#f44336',
+      borderDownColor: '#f44336',
+      borderUpColor: '#4caf50',
+      wickDownColor: '#f44336',
+      wickUpColor: '#4caf50',
+    });
 
-        // Add candlestick series
-        const candlestickSeries = chart.addCandlestickSeries();
-        candlestickSeries.setData([
-            { time: '2023-12-08', open: 100, high: 110, low: 90, close: 105 },
-            { time: '2023-12-09', open: 105, high: 115, low: 95, close: 100 },
-            { time: '2023-12-10', open: 100, high: 120, low: 90, close: 115 },
-        ]);
+    let openPrice = 0, highPrice = 0, lowPrice = Number.MAX_VALUE, closePrice = 0;
+    let currentCandle = null;
+    let lastCandleTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    let currentPrice = 0;
+    const activeTrades = []; // Array to store active trades
 
-        // Function to draw a rectangle
-        function drawRectangle(chart, series, fromTime, toTime, fromPrice, toPrice) {
-            const timeScale = chart.timeScale();
+    const tradeLog = document.getElementById('trade-log');
 
-            const fromCoord = {
-                x: timeScale.timeToCoordinate(new Date(fromTime).getTime() / 1000),
-                y: series.priceToCoordinate(fromPrice),
-            };
-            const toCoord = {
-                x: timeScale.timeToCoordinate(new Date(toTime).getTime() / 1000),
-                y: series.priceToCoordinate(toPrice),
-            };
+    // WebSocket to fetch live price data
+    const ws = new WebSocket("wss://ws-feed.exchange.coinbase.com");
 
-            if (fromCoord.x === null || fromCoord.y === null || toCoord.x === null || toCoord.y === null) {
-                console.warn('Coordinates are not in the visible range.');
-                return;
-            }
+    ws.onopen = () => {
+      console.log("WebSocket connected.");
+      ws.send(JSON.stringify({
+        type: "subscribe",
+        product_ids: ["BTC-USD"],
+        channels: [{ name: "ticker", product_ids: ["BTC-USD"] }]
+      }));
+    };
 
-            // Create a rectangle
-            const rectangle = document.createElement('div');
-            rectangle.className = 'rectangle';
-            rectangle.style.left = `${Math.min(fromCoord.x, toCoord.x)}px`;
-            rectangle.style.top = `${Math.min(fromCoord.y, toCoord.y)}px`;
-            rectangle.style.width = `${Math.abs(toCoord.x - fromCoord.x)}px`;
-            rectangle.style.height = `${Math.abs(toCoord.y - fromCoord.y)}px`;
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "ticker" && data.product_id === "BTC-USD") {
+        currentPrice = parseFloat(data.price);
+        document.getElementById('price-display').textContent = `BTC/USD Price: $${currentPrice.toFixed(2)}`;
 
-            chartContainer.appendChild(rectangle);
+        const now = Math.floor(Date.now() / 1000); // Current time in seconds
+
+        // Check if we need to start a new candle
+        if (now - lastCandleTime >= 5) {
+          if (currentCandle) {
+            // Finalize the previous candle
+            candlestickSeries.update(currentCandle);
+          }
+
+          // Start a new candle
+          openPrice = currentPrice;
+          highPrice = currentPrice;
+          lowPrice = currentPrice;
+          closePrice = currentPrice;
+
+          currentCandle = {
+            time: now,
+            open: openPrice,
+            high: highPrice,
+            low: lowPrice,
+            close: closePrice,
+          };
+
+          lastCandleTime = now;
+        } else {
+          // Update the current candle as price changes
+          if (currentPrice > highPrice) highPrice = currentPrice;
+          if (currentPrice < lowPrice) lowPrice = currentPrice;
+          closePrice = currentPrice;
+
+          // Update the current candle object
+          currentCandle = {
+            time: lastCandleTime,
+            open: openPrice,
+            high: highPrice,
+            low: lowPrice,
+            close: closePrice,
+          };
+
+          // Update the chart to show the forming candle
+          candlestickSeries.update(currentCandle);
         }
 
-
-        
-
-
-
-        // Example: Draw a rectangle
-        chart.timeScale().subscribeVisibleTimeRangeChange(() => {
-            // Clear existing rectangles (optional, for dynamic updates)
-            document.querySelectorAll('.rectangle').forEach(rect => rect.remove());
-
-            // Add a rectangle
-            drawRectangle(chart, candlestickSeries, '2023-12-09', '2023-12-10', 95, 115);
+        // Update profit/loss for active trades
+        activeTrades.forEach((trade) => {
+          if (!trade.isClosed) {
+            if (trade.tradeType == "Buy") {
+              trade.profitLoss = (currentPrice - trade.buyPrice) * 0.4; // Calculate live profit/loss
+              updateTradeLog(trade); // Update log with new profit/loss
+            } else {
+              trade.profitLoss = (trade.buyPrice - currentPrice) * 0.4; // Calculate live profit/loss
+              updateTradeLog(trade); // Update log with new profit/loss
+            }
+          }
         });
-    </script>
+      }
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket disconnected.");
+    };
+
+    // Add trade log entries
+    const addTradeLogEntry = (type, price, trade) => {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.dataset.tradeId = trade.id;
+
+
+      // TradeImg
+      const tradeImg = document.createElement('img');
+      tradeImg.className = 'trade-img';
+      tradeImg.src = "btc-usd.png";
+      entry.appendChild(tradeImg);
+
+      // Dvert
+      const vertDiv = document.createElement('div');
+      vertDiv.className = 'd-vert';
+
+      // Textmarket
+      const textMarket = document.createElement('b');
+      textMarket.className = 'text-market';
+      textMarket.textContent = "Bitcoin vs USD";
+      vertDiv.appendChild(textMarket);
+
+      // FlexBox
+      const flexDiv = document.createElement('div');
+      flexDiv.className = 'flex-box';
+
+      // TradePrice
+      const priceDiv = document.createElement('b');
+      priceDiv.className = 'trade-price';
+      priceDiv.textContent = price.toFixed(2);
+      flexDiv.appendChild(priceDiv);
+
+      // TradeType
+      const typeDiv = document.createElement('div');
+      typeDiv.className = 'trade-type';
+      typeDiv.textContent = type;
+      flexDiv.appendChild(typeDiv);
+
+      vertDiv.appendChild(flexDiv);
+      entry.appendChild(vertDiv);
+
+
+
+      // TradePL
+      const tplDiv = document.createElement('b');
+      tplDiv.className = 'tpl';
+      tplDiv.textContent = trade.profitLoss.toFixed(2);
+      entry.appendChild(tplDiv);
+
+
+
+      tradeLog.appendChild(entry);
+      tradeLog.scrollTop = tradeLog.scrollHeight;
+    };
+    // <div class="log-entry" data-trade-id="1689567891011">
+    //   <img src="btc-usd.png" class="trade-img" alt="">
+    //   <div class="d-vert">
+    //     <b class="text-market">Bitcoin vs USD</b>
+    //     <div class="flex-box">
+    //       <div class="trade-price">$10</div>
+    //       <div class="trade-type">Buy</div>
+    //     </div>
+    //   </div>
+    //   <div class="trade-profit">+$5.00</div>
+    // </div>
+    // Update existing trade log entry with live profit/loss
+    const updateTradeLog = (trade) => {
+
+      const logEntries = tradeLog.getElementsByClassName('log-entry');
+      for (let entry of logEntries) {
+        // Identify the specific log entry for the current trade
+        if (entry.dataset.tradeId == trade.id) {
+          // Update the profit/loss
+          const profitLossDiv = entry.querySelector('.tpl');
+          profitLossDiv.textContent = `$${trade.profitLoss.toFixed(2)}`;
+          // Add or remove the appropriate class based on the profit/loss value
+          if (trade.profitLoss >= 0) {
+            profitLossDiv.classList.add('trade-profit');
+            profitLossDiv.classList.remove('trade-loss');
+          } else {
+            profitLossDiv.classList.add('trade-loss');
+            profitLossDiv.classList.remove('trade-profit');
+          }
+          // entry.textContent = `[${new Date(trade.tradeStartTime * 1000).toLocaleTimeString()} ${new Date(trade.tradeStartTime * 1000).toLocaleDateString()}] ${trade.tradeType} at $${trade.buyPrice.toFixed(2)} - Profit/Loss: $${trade.profitLoss.toFixed(2)}`;
+          break;
+        }
+      }
+    };
+
+    // Object to store references to price lines
+    const priceLines = {};
+
+    // Add price line to the candlestick series
+    const addPriceLine = (type, price, tradeId) => {
+      const priceLine = candlestickSeries.createPriceLine({
+        price,
+        color: type === 'Buy' ? '#0000ff' : '#cc5500',
+        lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: type,
+      });
+
+      // Store the reference using the trade ID
+      priceLines[tradeId] = priceLine;
+    };
+
+
+    // Remove price line from the candlestick series
+    const removePriceLine = (tradeId) => {
+      if (priceLines[tradeId]) {
+        candlestickSeries.removePriceLine(priceLines[tradeId]);
+        delete priceLines[tradeId]; // Remove the reference from the object
+      }
+    };
+
+    // Periodically update profit/loss for active trades
+    setInterval(() => {
+      activeTrades.forEach((trade) => {
+        if (!trade.isClosed) {
+          // Update profit/loss based on current price
+          trade.profitLoss = currentPrice - trade.buyPrice;
+          updateTradeLog(trade);
+        }
+      });
+    }, 1000); // Update every second
+
+    // Buy button click event
+    document.getElementById('buy-button').addEventListener('click', () => {
+      const trade = {
+        buyPrice: currentPrice,
+        tradeStartTime: Math.floor(Date.now() / 1000),
+        isClosed: false,
+        profitLoss: 0,
+        tradeType: 'Buy',
+        id: Date.now(), // Unique ID for each trade
+      };
+      activeTrades.push(trade);
+      addTradeLogEntry('Buy', trade.buyPrice, trade);
+      addPriceLine('Buy', trade.buyPrice, trade.id);
+
+      // Auto-close trade after 2 minutes
+      setTimeout(() => {
+        if (!trade.isClosed) {
+          trade.isClosed = true;
+          updateTradeLog(trade); // Mark trade as closed
+          // Remove price line when the trade is closed
+          removePriceLine(trade.id);
+        }
+      }, 120000); // 2 minutes
+    });
+
+    // Sell button click event
+    document.getElementById('sell-button').addEventListener('click', () => {
+      const trade = {
+        buyPrice: currentPrice,
+        tradeStartTime: Math.floor(Date.now() / 1000),
+        isClosed: false,
+        profitLoss: 0,
+        tradeType: 'Sell',
+        id: Date.now(), // Unique ID for each trade
+      };
+      activeTrades.push(trade);
+      addTradeLogEntry('Sell', trade.buyPrice, trade);
+      addPriceLine('Sell', trade.buyPrice, trade.id);
+
+      // Auto-close trade after 2 minutes
+      setTimeout(() => {
+        if (!trade.isClosed) {
+          trade.isClosed = true;
+          updateTradeLog(trade); // Mark trade as closed
+          // Remove price line when the trade is closed
+          removePriceLine(trade.id);
+        }
+      }, 120000); // 2 minutes
+    });
+
+
+    
+  </script>
 </body>
+
 </html>
