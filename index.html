@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw Rectangles on Chart</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        #chart-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+            margin: 0 auto;
+        }
+
+        .rectangle {
+            position: absolute;
+            background-color: rgba(0, 255, 0, 0.3); /* Transparent green */
+            border: 1px solid #00ff00; /* Green border */
+            pointer-events: none; /* Prevent interference with chart */
+        }
+    </style>
+</head>
+<body>
+    <div id="chart-container"></div>
+
+
+  
+    <script>
+        // Create the chart
+        const chartContainer = document.getElementById('chart-container');
+        const chart = LightweightCharts.createChart(chartContainer, {
+            width: 600,
+            height: 400,
+            layout: {
+                background: { color: '#ffffff' },
+                textColor: '#000',
+            },
+            grid: {
+                vertLines: { color: '#e1e1e1' },
+                horzLines: { color: '#e1e1e1' },
+            },
+        });
+
+        // Add candlestick series
+        const candlestickSeries = chart.addCandlestickSeries();
+        candlestickSeries.setData([
+            { time: '2023-12-08', open: 100, high: 110, low: 90, close: 105 },
+            { time: '2023-12-09', open: 105, high: 115, low: 95, close: 100 },
+            { time: '2023-12-10', open: 100, high: 120, low: 90, close: 115 },
+        ]);
+
+        // Function to draw a rectangle
+        function drawRectangle(chart, series, fromTime, toTime, fromPrice, toPrice) {
+            const timeScale = chart.timeScale();
+
+            const fromCoord = {
+                x: timeScale.timeToCoordinate(new Date(fromTime).getTime() / 1000),
+                y: series.priceToCoordinate(fromPrice),
+            };
+            const toCoord = {
+                x: timeScale.timeToCoordinate(new Date(toTime).getTime() / 1000),
+                y: series.priceToCoordinate(toPrice),
+            };
+
+            if (fromCoord.x === null || fromCoord.y === null || toCoord.x === null || toCoord.y === null) {
+                console.warn('Coordinates are not in the visible range.');
+                return;
+            }
+
+            // Create a rectangle
+            const rectangle = document.createElement('div');
+            rectangle.className = 'rectangle';
+            rectangle.style.left = `${Math.min(fromCoord.x, toCoord.x)}px`;
+            rectangle.style.top = `${Math.min(fromCoord.y, toCoord.y)}px`;
+            rectangle.style.width = `${Math.abs(toCoord.x - fromCoord.x)}px`;
+            rectangle.style.height = `${Math.abs(toCoord.y - fromCoord.y)}px`;
+
+            chartContainer.appendChild(rectangle);
+        }
+
+
+        
+
+
+
+        // Example: Draw a rectangle
+        chart.timeScale().subscribeVisibleTimeRangeChange(() => {
+            // Clear existing rectangles (optional, for dynamic updates)
+            document.querySelectorAll('.rectangle').forEach(rect => rect.remove());
+
+            // Add a rectangle
+            drawRectangle(chart, candlestickSeries, '2023-12-09', '2023-12-10', 95, 115);
+        });
+    </script>
+</body>
+</html>
